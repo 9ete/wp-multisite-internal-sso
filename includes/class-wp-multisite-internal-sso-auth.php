@@ -144,15 +144,12 @@ class WP_Multisite_Internal_SSO_Auth {
             $this->utils->debug_message( __( 'Deleting user meta for user.', 'wp-multisite-internal-sso' ) . ' ' . $user_id );
             delete_user_meta( $user_id, 'session_tokens' );
         }
-
+		// If coming from the Debugging Clear Cookies button, we have the Source URL in $_GET['source']
         if ( isset( $_GET['source'] ) && $this->utils->is_valid_site_url( $_GET['source'], $this->settings->get_secondary_sites() ) ) {
             $this->utils->debug_message( __( 'Redirecting to source site.', 'wp-multisite-internal-sso' ) . ' ' . esc_url_raw( $_GET['source'] ) );
             $this->utils->wpmis_wp_redirect( esc_url_raw( $_GET['source'] ) );
             exit;
-        } else {
-            $this->utils->debug_message( __( 'Redirecting to home URL.', 'wp-multisite-internal-sso' ) );
-            $this->utils->wpmis_wp_redirect( home_url() );
-            exit;
         }
+		// If not coming from the Debug button, the redirect is handled in the logout_user() function
     }
 }
