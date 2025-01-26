@@ -239,26 +239,9 @@ class WP_Multisite_Internal_SSO_Settings {
      * @return array
      */
     public function get_secondary_sites() {
-        $settings = get_option( self::OPTION_NAME, array() );
-        $secondary_sites = isset( $settings['secondary_sites'] ) ? $settings['secondary_sites'] : array();
-
-        if (empty($secondary_sites)) {
-            $site_urls = array();
-            for ($i = 2; $i <= 4; $i++) {
-                $site_url = get_site_url($i);
-                if ($site_url) {
-                    $site_urls[] = trailingslashit($site_url);
-                }
-            }
-
-            if (empty($site_urls)) {
-                throw new Exception(__('No secondary sites found. Please configure secondary sites.', 'wp-multisite-internal-sso'));
-            }
-
-            $secondary_sites = $site_urls;
-        }
-
-        return array_map('trailingslashit', array_map('esc_url_raw', (array) $secondary_sites));
+        $settings        = get_option( self::OPTION_NAME, array() );
+        $secondary_sites = isset( $settings['secondary_sites'] ) ? $settings['secondary_sites'] : array( trailingslashit( get_site_url( 2 ) ) );
+        return array_map( 'trailingslashit', array_map( 'esc_url_raw', (array) $secondary_sites ) );
     }
 
     /**
