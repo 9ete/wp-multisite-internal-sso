@@ -26,15 +26,6 @@
     <exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
   </rule>
 
-  <!--
-    Staged enforcement (inherited v0.1.13 codebase): the i18n sniff stays
-    silenced until MSSO-5 lands the .pot + translator-comment fixes and removes
-    this block. Security sniffs were re-enabled in MSSO-4.
-  -->
-  <rule ref="WordPress.WP.I18n">
-    <severity>0</severity>
-  </rule>
-
   <!-- PHP compatibility floor (matches "Requires PHP: 8.1"). -->
   <config name="testVersion" value="8.1-"/>
   <rule ref="PHPCompatibilityWP" />

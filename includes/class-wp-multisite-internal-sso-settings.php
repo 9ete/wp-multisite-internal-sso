@@ -64,16 +64,6 @@ class WP_Multisite_Internal_SSO_Settings {
 	 */
 	public function __construct( $utils ) {
 		$this->utils = $utils;
-		add_action( 'admin_init', array( $this, 'load_textdomain' ) );
-	}
-
-	/**
-	 * Load plugin textdomain for translations.
-	 *
-	 * @return void
-	 */
-	public function load_textdomain() {
-		load_plugin_textdomain( 'wp-multisite-internal-sso', false, dirname( plugin_basename( __FILE__ ) ) . '/../languages' );
 	}
 
 	/**

@@ -109,7 +109,7 @@ class WP_Multisite_Internal_SSO_SSO {
 		}
 
 		$current_host = $this->get_current_site_url();
-		$this->utils->debug_message( __( 'Running check_sso ' . $current_host, 'wp-multisite-internal-sso' ) );
+		$this->utils->debug_message( 'Running check_sso ' . $current_host );
 
 		if ( $current_host === $this->settings->get_primary_site() ) {
 			$this->handle_primary_site_logic();
@@ -228,7 +228,7 @@ class WP_Multisite_Internal_SSO_SSO {
 	private function handle_secondary_site_logic() {
 		$this->utils->debug_message( __( 'Running SSO logic for secondary site.', 'wp-multisite-internal-sso' ) );
 		if ( is_user_logged_in() ) {
-			$this->utils->debug_message( __( 'User already logged in on ' . get_site_url() . ' ', 'wp-multisite-internal-sso' ) );
+			$this->utils->debug_message( 'User already logged in on ' . get_site_url() );
 			return;
 		}
 
@@ -240,7 +240,7 @@ class WP_Multisite_Internal_SSO_SSO {
 				sanitize_text_field( wp_unslash( $_GET['wpmssso_nonce'] ) )
 			);
 		} elseif ( isset( $_COOKIE[ $this->settings->get_redirect_cookie_name() ] ) ) {
-				$this->utils->debug_message( __( 'Redirect already attempted on ' . get_site_url() . ' No further action.', 'wp-multisite-internal-sso' ) );
+				$this->utils->debug_message( 'Redirect already attempted on ' . get_site_url() . ' No further action.' );
 		} else {
 			$this->initiate_sso_auth_redirect();
 		}

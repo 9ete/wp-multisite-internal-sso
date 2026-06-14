@@ -1,0 +1,222 @@
+# Copyright (C) 2026 9ete
+# This file is distributed under the GPLv2 or later.
+msgid ""
+msgstr ""
+"Project-Id-Version: WP Multisite Internal SSO 0.1.13\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wp-multisite-internal-sso\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-06-14T18:59:38+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: wp-multisite-internal-sso\n"
+
+#. Plugin Name of the plugin
+#: wp-multisite-internal-sso.php:11
+msgid "WP Multisite Internal SSO"
+msgstr ""
+
+#. Plugin URI of the plugin
+#: wp-multisite-internal-sso.php:12
+msgid "https://github.com/9ete/wp-multisite-internal-sso"
+msgstr ""
+
+#. Description of the plugin
+#: wp-multisite-internal-sso.php:13
+msgid "Enables automatic login (SSO) for users across sites in a WordPress Multisite network."
+msgstr ""
+
+#. Author of the plugin
+#: wp-multisite-internal-sso.php:17
+msgid "9ete"
+msgstr ""
+
+#. Author URI of the plugin
+#: wp-multisite-internal-sso.php:18
+msgid "https://petelower.com"
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-admin.php:59
+#: includes/class-wp-multisite-internal-sso-settings.php:309
+msgid "WP Multisite Internal SSO Settings"
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-admin.php:60
+msgid "Multisite SSO"
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-admin.php:79
+msgid "Logged in"
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-admin.php:79
+msgid "Not logged in"
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-admin.php:85
+msgid "Log out on all sites"
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-admin.php:90
+msgid "Auto-login to primary site"
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-admin.php:94
+msgid "Log in"
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-admin.php:98
+msgid "Clear SSO cookies"
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-auth.php:51
+#: includes/class-wp-multisite-internal-sso-auth.php:58
+msgid "Nonce verification failed."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-auth.php:107
+msgid "Logging out user from all sites."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-auth.php:133
+msgid "Clearing authentication cookies."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-auth.php:147
+msgid "Authentication cookies cleared."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-auth.php:151
+msgid "Destroying session for user."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-auth.php:157
+msgid "Deleting user meta for user."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-settings.php:271
+msgid "You do not have permission to manage these settings."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-settings.php:313
+msgid "Settings saved."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-settings.php:321
+msgid "Primary Site"
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-settings.php:331
+msgid "The site that holds the canonical login. Users authenticate here."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-settings.php:335
+msgid "Secondary Sites"
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-settings.php:338
+msgid "Secondary sites"
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-settings.php:352
+msgid "Sites where users are auto-logged-in after authenticating on the primary site."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-settings.php:356
+msgid "Token Expiration (seconds)"
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-settings.php:359
+msgid "How long an SSO token stays valid. Default 300 seconds (5 minutes)."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-settings.php:363
+msgid "Redirect Cookie Name"
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-settings.php:366
+msgid "Name of the short-lived cookie used to prevent redirect loops."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-settings.php:370
+msgid "Secure Cookies"
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-settings.php:374
+msgid "Only transmit SSO cookies over HTTPS."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-settings.php:379
+msgid "Debug Status Panel"
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-settings.php:383
+msgid "Show a front-end login-status panel (only renders when WP_DEBUG is enabled)."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-sso.php:107
+msgid "Skipping SSO logic for admin and AJAX requests."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-sso.php:119
+msgid "No SSO logic for current host."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-sso.php:130
+msgid "Running handle_primary_site_logic"
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-sso.php:138
+msgid "User logged in on primary site."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-sso.php:141
+msgid "Ignoring SSO redirect: return URL is not a configured secondary site."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-sso.php:146
+msgid "User not logged in on primary site."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-sso.php:156
+msgid "User already logged in on primary site."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-sso.php:162
+msgid "Received SSO token on primary site."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-sso.php:207
+msgid "User ID not provided (get_auto_login_url_with_payload)."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-sso.php:211
+msgid "Generating auto login URL with payload."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-sso.php:229
+msgid "Running SSO logic for secondary site."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-sso.php:254
+msgid "Redirecting to primary site for SSO."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-sso.php:308
+msgid "Redirect cookie set."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso-sso.php:316
+msgid "Redirect cookie cleared."
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso.php:129
+msgid " -!- Init action triggered on : "
+msgstr ""
+
+#: includes/class-wp-multisite-internal-sso.php:132
+msgid "ON THE LOGIN PAGE"
+msgstr ""
