@@ -104,7 +104,7 @@ class WP_Multisite_Internal_SSO_Admin {
 		}
 
 		if ( is_user_logged_in() && $this->settings->get_primary_site_id() !== get_current_blog_id() ) {
-			echo '<a href="' . $this->sso->get_auto_login_url_with_payload( wp_get_current_user()->user_login, time(), $this->settings->get_primary_site() ) . '">Auto Log in to primary site</a>';
+			echo '<a href="' . esc_url( (string) $this->sso->get_auto_login_url_with_payload( wp_get_current_user()->ID, $this->settings->get_primary_site() ) ) . '">' . esc_html__( 'Auto Log in to primary site', 'wp-multisite-internal-sso' ) . '</a>';
 			echo '<span class="divider"> | </span>';
 		}
 

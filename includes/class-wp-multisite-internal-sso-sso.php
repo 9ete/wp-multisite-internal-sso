@@ -29,6 +29,13 @@ class WP_Multisite_Internal_SSO_SSO {
 	private $utils;
 
 	/**
+	 * Single-use token service.
+	 *
+	 * @var WP_Multisite_Internal_SSO_Token
+	 */
+	private $token;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param WP_Multisite_Internal_SSO_Settings $settings Settings manager instance.
@@ -37,6 +44,7 @@ class WP_Multisite_Internal_SSO_SSO {
 	public function __construct( $settings, $utils ) {
 		$this->settings = $settings;
 		$this->utils    = $utils;
+		$this->token    = new WP_Multisite_Internal_SSO_Token( $settings );
 	}
 
 	/**
@@ -123,7 +131,7 @@ class WP_Multisite_Internal_SSO_SSO {
 				exit;
 			}
 		}
-		if ( isset( $_GET['wpmssso_user'], $_GET['wpmssso_token'], $_GET['wpmssso_time'] ) ) {
+		if ( isset( $_GET['wpmssso_user'], $_GET['wpmssso_token'], $_GET['wpmssso_time'], $_GET['wpmssso_nonce'] ) ) {
 
 			// If the user is logged in, send to the home page.
 			if ( is_user_logged_in() ) {
@@ -134,7 +142,7 @@ class WP_Multisite_Internal_SSO_SSO {
 
 			$auto_login_return = isset( $_GET['wpmssso_return'] ) ? $_GET['wpmssso_return'] : false;
 			$this->utils->debug_message( __( 'Received SSO token on primary site.', 'wp-multisite-internal-sso' ) );
-			$this->auto_login_user( $_GET['wpmssso_user'], $_GET['wpmssso_token'], $_GET['wpmssso_time'], $auto_login_return );
+			$this->auto_login_user( $_GET['wpmssso_user'], $_GET['wpmssso_token'], $_GET['wpmssso_time'], $_GET['wpmssso_nonce'], $auto_login_return );
 		}
 	}
 
@@ -152,7 +160,7 @@ class WP_Multisite_Internal_SSO_SSO {
 		$this->utils->debug_message( ' - Return URL: ' . $return_url );
 
 		$this->utils->debug_message( 'Sending token to ' . $dest_url . ' site for user ID ' . $user_id . ' with return URL ' . $return_url );
-		$redirect_url = $this->get_auto_login_url_with_payload( $user_id, time(), $dest_url, $return_url );
+		$redirect_url = $this->get_auto_login_url_with_payload( $user_id, $dest_url, $return_url );
 
 		$this->utils->debug_message( 'Redirecting to ' . $redirect_url );
 
@@ -161,32 +169,32 @@ class WP_Multisite_Internal_SSO_SSO {
 	}
 
 	/**
-	 * Generate auto login URL with payload.
+	 * Generate an auto-login URL carrying a fresh single-use token.
 	 *
-	 * @param int    $user_id    User ID.
-	 * @param int    $time       Timestamp.
-	 * @param string $dest_url   Destination URL.
-	 * @param string $return_url Optional return URL.
-	 * @return string Auto login URL.
+	 * @param int    $user_id    User ID to authenticate at the destination.
+	 * @param string $dest_url   Destination site URL.
+	 * @param string $return_url Optional return URL after auto-login.
+	 * @return string|null Auto-login URL, or null when no user is supplied.
 	 */
-	public function get_auto_login_url_with_payload( $user_id, $time, $dest_url, $return_url = false ) {
+	public function get_auto_login_url_with_payload( $user_id, $dest_url, $return_url = false ) {
 
+		$user_id = absint( $user_id );
 		if ( ! $user_id ) {
 			$this->utils->debug_message( __( 'User ID not provided (get_auto_login_url_with_payload).', 'wp-multisite-internal-sso' ) );
-			return;
+			return null;
 		}
 
 		$this->utils->debug_message( __( 'Generating auto login URL with payload.', 'wp-multisite-internal-sso' ) );
-		$url_payload = add_query_arg(
-			array(
-				'wpmssso_user'   => rawurlencode( $user_id ),
-				'wpmssso_token'  => rawurlencode( $this->generate_sso_token( $user_id, $time ) ),
-				'wpmssso_time'   => absint( $time ),
-				'wpmssso_return' => $return_url ? rawurlencode( $return_url ) : false,
-			),
-			esc_url_raw( wp_unslash( $dest_url ) )
-		);
-		$this->utils->debug_message( ' - URL Payload: ' . $url_payload );
+
+		$args = $this->token->issue( $user_id );
+		if ( $return_url ) {
+			$args['wpmssso_return'] = $return_url;
+		}
+
+		$url_payload = add_query_arg( $args, esc_url_raw( wp_unslash( $dest_url ) ) );
+
+		// Token intentionally omitted from logs.
+		$this->utils->debug_message( 'Auto login URL generated for ' . esc_url_raw( $dest_url ) );
 		return $url_payload;
 	}
 
@@ -200,8 +208,8 @@ class WP_Multisite_Internal_SSO_SSO {
 			return;
 		}
 
-		if ( isset( $_GET['wpmssso_user'], $_GET['wpmssso_token'], $_GET['wpmssso_time'] ) ) {
-			$this->auto_login_user( $_GET['wpmssso_user'], $_GET['wpmssso_token'], $_GET['wpmssso_time'] );
+		if ( isset( $_GET['wpmssso_user'], $_GET['wpmssso_token'], $_GET['wpmssso_time'], $_GET['wpmssso_nonce'] ) ) {
+			$this->auto_login_user( $_GET['wpmssso_user'], $_GET['wpmssso_token'], $_GET['wpmssso_time'], $_GET['wpmssso_nonce'] );
 		} elseif ( isset( $_COOKIE[ $this->settings->get_redirect_cookie_name() ] ) ) {
 				$this->utils->debug_message( __( 'Redirect already attempted on ' . get_site_url() . ' No further action.', 'wp-multisite-internal-sso' ) );
 		} else {
@@ -224,69 +232,43 @@ class WP_Multisite_Internal_SSO_SSO {
 	}
 
 	/**
-	 * Auto login user based on SSO token.
+	 * Auto login a user after verifying and consuming a single-use SSO token.
 	 *
-	 * @param int    $wpmssso_user  User ID.
-	 * @param string $wpmssso_token Token to verify.
-	 * @param int    $wpmssso_time  Timestamp.
-	 * @param string $return_url     Optional return URL.
+	 * @param int    $wpmssso_user  Claimed user ID.
+	 * @param string $wpmssso_token Token signature to verify.
+	 * @param int    $wpmssso_time  Issue timestamp.
+	 * @param string $wpmssso_nonce Single-use token id.
+	 * @param string $return_url    Optional return URL.
 	 */
-	private function auto_login_user( $wpmssso_user, $wpmssso_token, $wpmssso_time, $return_url = false ) {
-		$user_id = intval( $wpmssso_user );
-		$token   = sanitize_text_field( wp_unslash( $wpmssso_token ) );
+	private function auto_login_user( $wpmssso_user, $wpmssso_token, $wpmssso_time, $wpmssso_nonce, $return_url = false ) {
+		$user_id = absint( $wpmssso_user );
+		$token   = is_string( $wpmssso_token ) ? sanitize_text_field( wp_unslash( $wpmssso_token ) ) : '';
 		$time    = absint( $wpmssso_time );
+		$jti     = is_string( $wpmssso_nonce ) ? sanitize_text_field( wp_unslash( $wpmssso_nonce ) ) : '';
 
-		$this->utils->debug_message( __( 'Attempting to auto login user on ' . get_site_url() . ' ID ' . $user_id . ' ' . $time . ' ' . $token, 'wp-multisite-internal-sso' ) );
+		// Token / jti intentionally omitted from logs.
+		$this->utils->debug_message( 'Attempting auto login on ' . esc_url_raw( get_site_url() ) . ' for user ID ' . $user_id . ' (t=' . $time . ').' );
 
-		if ( $this->verify_sso_token( $user_id, $token, $time ) ) {
-			// Log the user in.
-			$auth = new WP_Multisite_Internal_SSO_Auth( $this->settings, $this->utils );
-			$auth->log_user_in( $user_id ); // Pass the user ID rather than a WP_User object.
+		$verified_user = $this->token->verify_and_consume( $user_id, $time, $jti, $token );
 
-			$this->clear_redirect_cookie();
-			$this->utils->debug_message( __( 'Successfully logged in user on ' . get_site_url() . ' ', 'wp-multisite-internal-sso' ) . ' ' . $user_id );
-
-			if ( $return_url ) {
-				$this->utils->wpmis_wp_redirect( $return_url );
-				exit;
-			}
-			wp_redirect( remove_query_arg( array( 'wpmssso_user', 'wpmssso_token', 'wpmssso_time' ) ) );
-			exit;
-		} else {
-			$this->utils->debug_message( __( 'Invalid or expired token for user on ' . get_site_url() . ' ', 'wp-multisite-internal-sso' ) . ' ' . $user_id );
+		if ( ! $verified_user ) {
+			$this->utils->debug_message( 'Invalid or expired token on ' . esc_url_raw( get_site_url() ) . ' for user ID ' . $user_id . '.' );
 			return;
 		}
-	}
 
-	/**
-	 * Generate SSO token.
-	 *
-	 * @param int $user_id User ID.
-	 * @param int $time    Timestamp.
-	 * @return string Generated token.
-	 */
-	private function generate_sso_token( $user_id, $time ) {
-		$data = $user_id . '|' . $time . '|' . AUTH_SALT;
-		$hash = wp_hash( $data, 'auth' );
-		$this->utils->debug_message( __( 'Generating SSO token.', 'wp-multisite-internal-sso' ) );
-		return $hash;
-	}
+		$auth = new WP_Multisite_Internal_SSO_Auth( $this->settings, $this->utils );
+		$auth->log_user_in( $verified_user );
 
-	/**
-	 * Verify SSO token.
-	 *
-	 * @param int    $user_id User ID.
-	 * @param string $token   Token to verify.
-	 * @param int    $time    Timestamp.
-	 * @return bool True if valid, false otherwise.
-	 */
-	private function verify_sso_token( $user_id, $token, $time ) {
-		if ( ( time() - $time ) > $this->settings->get_token_expiration() ) {
-			return false;
+		$this->clear_redirect_cookie();
+		$this->utils->debug_message( 'Successfully logged in user ' . $verified_user . ' on ' . esc_url_raw( get_site_url() ) . '.' );
+
+		if ( $return_url ) {
+			$this->utils->wpmis_wp_redirect( $return_url );
+			exit;
 		}
-		$expected = $this->generate_sso_token( $user_id, $time );
-		$this->utils->debug_message( __( 'Verifying SSO token.', 'wp-multisite-internal-sso' ) );
-		return hash_equals( $expected, $token );
+
+		wp_safe_redirect( remove_query_arg( array( 'wpmssso_user', 'wpmssso_token', 'wpmssso_time', 'wpmssso_nonce', 'wpmssso_return' ) ) );
+		exit;
 	}
 
 	/**

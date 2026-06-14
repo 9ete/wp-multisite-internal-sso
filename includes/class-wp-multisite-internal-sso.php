@@ -75,6 +75,7 @@ class WP_Multisite_Internal_SSO {
 	 */
 	private function load_dependencies() {
 		require_once plugin_dir_path( __FILE__ ) . 'class-wp-multisite-internal-sso-settings.php';
+		require_once plugin_dir_path( __FILE__ ) . 'class-wp-multisite-internal-sso-token.php';
 		require_once plugin_dir_path( __FILE__ ) . 'class-wp-multisite-internal-sso-sso.php';
 		require_once plugin_dir_path( __FILE__ ) . 'class-wp-multisite-internal-sso-auth.php';
 		require_once plugin_dir_path( __FILE__ ) . 'class-wp-multisite-internal-sso-admin.php';

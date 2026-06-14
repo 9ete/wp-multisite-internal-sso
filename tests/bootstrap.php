@@ -146,6 +146,16 @@ if ( ! function_exists( 'wp_hash' ) ) {
 		return hash_hmac( 'md5', (string) $data, 'test-key-' . $scheme );
 	}
 }
+if ( ! function_exists( 'wp_generate_password' ) ) {
+	function wp_generate_password( $length = 12, $special_chars = true, $extra_special_chars = false ) {
+		$chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+		$out   = '';
+		for ( $i = 0; $i < (int) $length; $i++ ) {
+			$out .= $chars[ random_int( 0, strlen( $chars ) - 1 ) ];
+		}
+		return $out;
+	}
+}
 if ( ! function_exists( 'is_ssl' ) ) {
 	function is_ssl() {
 		return $GLOBALS['_test_is_ssl'] ?? false;
@@ -323,6 +333,7 @@ if ( is_file( $wpmssso_autoload ) ) {
 $wpmssso_inc = dirname( __DIR__ ) . '/includes/';
 require_once $wpmssso_inc . 'class-wp-multisite-internal-sso-utils.php';
 require_once $wpmssso_inc . 'class-wp-multisite-internal-sso-settings.php';
+require_once $wpmssso_inc . 'class-wp-multisite-internal-sso-token.php';
 require_once $wpmssso_inc . 'class-wp-multisite-internal-sso-sso.php';
 require_once $wpmssso_inc . 'class-wp-multisite-internal-sso-auth.php';
 require_once $wpmssso_inc . 'class-wp-multisite-internal-sso-admin.php';
