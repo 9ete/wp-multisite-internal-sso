@@ -63,58 +63,40 @@ class WP_Multisite_Internal_SSO_Admin {
 			array( $this->settings, 'render_settings_page' )
 		);
 	}
+
 	/**
-	 * Enqueue admin scripts.
+	 * Render a small front-end status / actions panel.
 	 *
-	 * @param string $hook Current admin page.
-	 */
-	public function enqueue_admin_scripts( $hook ) {
-		if ( 'settings_page_wp-multisite-internal-sso' !== $hook ) {
-			return;
-		}
-
-		wp_enqueue_script( 'wpmis-sso-admin-js', WPMIS_SSO_PLUGIN_URL . 'assets/js/wpmis-sso-admin.js', array(), WPMIS_SSO_PLUGIN_VERSION, true );
-	}
-
-	/**
-	 * Display user login status and action buttons.
+	 * Only attached when WP_DEBUG is enabled and a network admin has opted in via
+	 * the settings screen — never shown to ordinary visitors.
+	 *
+	 * @return void
 	 */
 	public function display_user_status() {
+		$logged_in = is_user_logged_in();
 
-		$clear_cookies_button = '<button onclick="document.cookie = \'' . esc_js( $this->settings->get_redirect_cookie_name() ) . '=;expires=Thu, 01 Jan 1970 00:00:00 GMT\';">' . esc_html__( 'Clear Cookies', 'wp-multisite-internal-sso' ) . '</button>';
+		echo '<div class="wpmis-sso-status ' . ( $logged_in ? 'logged-in' : 'not-logged-in' ) . '">';
+		echo esc_html( $logged_in ? __( 'Logged in', 'wp-multisite-internal-sso' ) : __( 'Not logged in', 'wp-multisite-internal-sso' ) );
+		echo ' &mdash; ' . esc_html( get_site_url() );
+		echo '</div>';
 
-		if ( isset( $_COOKIE[ $this->settings->get_redirect_cookie_name() ] ) ) {
-			echo '<div class="wpmis-sso-status redirect-attempt">' . esc_html__( 'Redirect Attempted - ', 'wp-multisite-internal-sso' ) . esc_html( $_COOKIE[ $this->settings->get_redirect_cookie_name() ] ) . '</div>';
-		}
-
-		if ( ! is_user_logged_in() ) {
-			echo '<div class="wpmis-sso-status not-logged-in">' . esc_html__( 'Not logged in - ', 'wp-multisite-internal-sso' ) . esc_url( get_site_url() ) . '</div>';
-		} else {
-			echo '<div class="wpmis-sso-status logged-in">' . esc_html__( 'Logged in - ', 'wp-multisite-internal-sso' ) . esc_url( get_site_url() ) . '</div>';
-		}
-
-		// Display logout button.
 		echo '<div class="wpmis-sso-actions">';
-		if ( is_user_logged_in() ) {
-			echo '<a href="' . esc_url( $this->get_logout_url() ) . '">' . esc_html__( 'Logout On All Sites', 'wp-multisite-internal-sso' ) . '</a>';
-			echo '<span class="divider"> | </span>';
+		if ( $logged_in ) {
+			echo '<a href="' . esc_url( $this->get_logout_url() ) . '">' . esc_html__( 'Log out on all sites', 'wp-multisite-internal-sso' ) . '</a>';
+
+			if ( $this->settings->get_primary_site_id() !== get_current_blog_id() ) {
+				$auto_login_url = $this->sso->get_auto_login_url_with_payload( wp_get_current_user()->ID, $this->settings->get_primary_site() );
+				if ( $auto_login_url ) {
+					echo ' | <a href="' . esc_url( $auto_login_url ) . '">' . esc_html__( 'Auto-login to primary site', 'wp-multisite-internal-sso' ) . '</a>';
+				}
+			}
 		} else {
-			echo '<a href="' . esc_url( wp_login_url() ) . '">' . esc_html__( 'Login', 'wp-multisite-internal-sso' ) . '</a>';
-			echo '<span class="divider"> | </span>';
+			echo '<a href="' . esc_url( wp_login_url() ) . '">' . esc_html__( 'Log in', 'wp-multisite-internal-sso' ) . '</a>';
 		}
 
-		if ( is_user_logged_in() && $this->settings->get_primary_site_id() !== get_current_blog_id() ) {
-			echo '<a href="' . esc_url( (string) $this->sso->get_auto_login_url_with_payload( wp_get_current_user()->ID, $this->settings->get_primary_site() ) ) . '">' . esc_html__( 'Auto Log in to primary site', 'wp-multisite-internal-sso' ) . '</a>';
-			echo '<span class="divider"> | </span>';
-		}
-
-		// If the redirect cookie is set.
 		if ( isset( $_COOKIE[ $this->settings->get_redirect_cookie_name() ] ) ) {
-			echo 'SSO Login Attempted - ';
-			echo $clear_cookies_button;
-			echo '<span class="divider"> | </span>';
+			echo ' | <a href="' . esc_url( $this->get_clear_cookies_url() ) . '">' . esc_html__( 'Clear SSO cookies', 'wp-multisite-internal-sso' ) . '</a>';
 		}
-
 		echo '</div>';
 	}
 

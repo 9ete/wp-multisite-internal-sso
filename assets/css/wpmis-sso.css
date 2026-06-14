@@ -20,12 +20,6 @@
     background-color: #dc3545; /* Red for not logged in */
 }
 
-.wpmis-sso-status.redirect-attempt {
-    background-color: gold;
-    color: black;
-    right: 230px;
-}
-
 .wpmis-sso-actions {
     position: fixed;
     top: 50px;
@@ -46,8 +40,4 @@
 
 .wpmis-sso-actions a:hover {
     text-decoration: underline;
-}
-
-.wpmis-sso-actions span.divider:last-of-type {
-    display: none;
 }

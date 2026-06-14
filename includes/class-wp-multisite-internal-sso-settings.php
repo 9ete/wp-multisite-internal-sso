@@ -88,6 +88,7 @@ class WP_Multisite_Internal_SSO_Settings {
 			'token_expiration'     => self::DEFAULT_TOKEN_EXPIRATION,
 			'redirect_cookie_name' => self::DEFAULT_REDIRECT_COOKIE,
 			'secure_cookies'       => is_ssl(),
+			'status_panel'         => false,
 		);
 	}
 
@@ -147,6 +148,7 @@ class WP_Multisite_Internal_SSO_Settings {
 			'token_expiration'     => $token_expiration,
 			'redirect_cookie_name' => $cookie_name,
 			'secure_cookies'       => ! empty( $input['secure_cookies'] ),
+			'status_panel'         => ! empty( $input['status_panel'] ),
 		);
 	}
 
@@ -253,6 +255,16 @@ class WP_Multisite_Internal_SSO_Settings {
 	public function are_secure_cookies_enabled() {
 		$settings = $this->get_settings();
 		return ! empty( $settings['secure_cookies'] );
+	}
+
+	/**
+	 * Whether the opt-in front-end debug status panel is enabled.
+	 *
+	 * @return bool
+	 */
+	public function is_status_panel_enabled() {
+		$settings = $this->get_settings();
+		return ! empty( $settings['status_panel'] );
 	}
 
 	/**
@@ -370,6 +382,15 @@ class WP_Multisite_Internal_SSO_Settings {
 							<label>
 								<input type="checkbox" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[secure_cookies]" value="1" <?php checked( ! empty( $settings['secure_cookies'] ) ); ?> />
 								<?php esc_html_e( 'Only transmit SSO cookies over HTTPS.', 'wp-multisite-internal-sso' ); ?>
+							</label>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Debug Status Panel', 'wp-multisite-internal-sso' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[status_panel]" value="1" <?php checked( ! empty( $settings['status_panel'] ) ); ?> />
+								<?php esc_html_e( 'Show a front-end login-status panel (only renders when WP_DEBUG is enabled).', 'wp-multisite-internal-sso' ); ?>
 							</label>
 						</td>
 					</tr>

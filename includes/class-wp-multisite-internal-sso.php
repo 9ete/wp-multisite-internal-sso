@@ -96,18 +96,18 @@ class WP_Multisite_Internal_SSO {
 		add_action( 'template_redirect', array( $this->sso, 'check_sso' ) );
 		add_action( 'network_admin_menu', array( $this->admin, 'add_network_admin_menu' ) );
 		add_action( 'network_admin_edit_' . WP_Multisite_Internal_SSO_Settings::SAVE_ACTION, array( $this->settings, 'handle_network_save' ) );
-		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_styles' ) );
-		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
 		add_filter( 'login_redirect', array( $this->sso, 'wpmis_sso_login_redirect' ), 10, 3 );
 		add_action( 'init', array( $this->auth, 'handle_actions' ) );
 
 		if ( WP_DEBUG ) {
 			add_action( 'init', array( $this, 'init_logging' ), 1 );
+		}
 
-			if ( strpos( get_site_url(), '.site' ) !== false || is_user_admin() ) {
-				add_action( 'admin_enqueue_scripts', array( $this->admin, 'enqueue_admin_scripts' ) );
-				add_action( 'wp_body_open', array( $this->admin, 'display_user_status' ) );
-			}
+		// Optional front-end status panel: rendered only when WP_DEBUG is enabled
+		// AND a network admin has explicitly opted in. Its styles load only then.
+		if ( WP_DEBUG && $this->settings->is_status_panel_enabled() ) {
+			add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_styles' ) );
+			add_action( 'wp_body_open', array( $this->admin, 'display_user_status' ) );
 		}
 	}
 
