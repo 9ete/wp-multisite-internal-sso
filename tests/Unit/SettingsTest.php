@@ -144,6 +144,37 @@ final class SettingsTest extends TestCase {
 	}
 
 	/**
+	 * secure_cookies getter reflects the stored value.
+	 */
+	public function test_secure_cookies_getter(): void {
+		$GLOBALS['_test_site_options']['wpmis_sso_settings'] = array( 'secure_cookies' => true );
+		$this->assertTrue( $this->make_settings()->are_secure_cookies_enabled() );
+	}
+
+	/**
+	 * A sanitize → persist → get round-trip yields consistent derived values.
+	 */
+	public function test_sanitize_persist_get_roundtrip(): void {
+		$settings = $this->make_settings();
+		$GLOBALS['_test_site_options']['wpmis_sso_settings'] = $settings->sanitize_settings(
+			array(
+				'primary_site_id'      => '1',
+				'secondary_site_ids'   => array( '2', '3' ),
+				'token_expiration'     => '120',
+				'redirect_cookie_name' => 'roundtrip',
+				'secure_cookies'       => '1',
+				'status_panel'         => '1',
+			)
+		);
+		$this->assertSame( 'https://primary.example.com/', $settings->get_primary_site() );
+		$this->assertSame( array( 'https://b.example.com/', 'https://c.example.com/' ), $settings->get_secondary_sites() );
+		$this->assertSame( 120, $settings->get_token_expiration() );
+		$this->assertSame( 'roundtrip', $settings->get_redirect_cookie_name() );
+		$this->assertTrue( $settings->are_secure_cookies_enabled() );
+		$this->assertTrue( $settings->is_status_panel_enabled() );
+	}
+
+	/**
 	 * The debug status panel is off by default and can be opted into.
 	 */
 	public function test_status_panel_defaults_off_and_opts_in(): void {
