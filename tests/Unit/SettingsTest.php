@@ -142,4 +142,17 @@ final class SettingsTest extends TestCase {
 		$this->assertFalse( $settings->is_secondary_site( 'https://primary.example.com' ) );
 		$this->assertFalse( $settings->is_secondary_site( 'https://evil.example.com' ) );
 	}
+
+	/**
+	 * The debug status panel is off by default and can be opted into.
+	 */
+	public function test_status_panel_defaults_off_and_opts_in(): void {
+		$this->assertFalse( $this->make_settings()->is_status_panel_enabled() );
+
+		$out = $this->make_settings()->sanitize_settings( array( 'status_panel' => '1' ) );
+		$this->assertTrue( $out['status_panel'] );
+
+		$GLOBALS['_test_site_options']['wpmis_sso_settings'] = array( 'status_panel' => true );
+		$this->assertTrue( $this->make_settings()->is_status_panel_enabled() );
+	}
 }
