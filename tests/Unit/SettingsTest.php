@@ -127,4 +127,19 @@ final class SettingsTest extends TestCase {
 		$this->assertSame( 300, $settings->get_token_expiration() );
 		$this->assertSame( 'wpmssso_redirect_attempt', $settings->get_redirect_cookie_name() );
 	}
+
+	/**
+	 * is_secondary_site() matches any enabled secondary and rejects others.
+	 */
+	public function test_is_secondary_site_membership(): void {
+		$GLOBALS['_test_site_options']['wpmis_sso_settings'] = array(
+			'primary_site_id'    => 1,
+			'secondary_site_ids' => array( 2, 3 ),
+		);
+		$settings = $this->make_settings();
+		$this->assertTrue( $settings->is_secondary_site( 'https://b.example.com' ) );
+		$this->assertTrue( $settings->is_secondary_site( 'https://c.example.com/' ) );
+		$this->assertFalse( $settings->is_secondary_site( 'https://primary.example.com' ) );
+		$this->assertFalse( $settings->is_secondary_site( 'https://evil.example.com' ) );
+	}
 }
