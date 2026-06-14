@@ -1,0 +1,13 @@
+.vscode/
+.idea/
+/vendor/
+/node_modules/
+/zips/
+*.zip
+.claude/
+.git.nosync/
+.DS_Store
+.phpunit.result.cache
+/tests/e2e/cypress/videos/
+/tests/e2e/cypress/screenshots/
+/wp-multisite-internal-sso/

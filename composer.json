@@ -1,0 +1,41 @@
+{
+	"name": "9ete/wp-multisite-internal-sso",
+	"description": "Automatic internal SSO between sites in a WordPress Multisite network.",
+	"type": "wordpress-plugin",
+	"license": "GPL-2.0-or-later",
+	"require": {
+		"php": ">=8.1"
+	},
+	"require-dev": {
+		"squizlabs/php_codesniffer": "^3.13",
+		"wp-coding-standards/wpcs": "^3.3",
+		"phpcompatibility/phpcompatibility-wp": "^2.1",
+		"dealerdirect/phpcodesniffer-composer-installer": "^1.2",
+		"wp-cli/wp-cli-bundle": "^2.12",
+		"phpunit/phpunit": "^10.5"
+	},
+	"config": {
+		"allow-plugins": {
+			"dealerdirect/phpcodesniffer-composer-installer": true
+		}
+	},
+	"scripts": {
+		"install-hooks": "git config core.hooksPath .githooks",
+		"test": "phpunit",
+		"lint": "phpcs",
+		"lint:fix": "phpcbf",
+		"build-zip": "./bin/build-zip.sh",
+		"plugin-check": "./bin/build-zip.sh -q && unzip -q wp-multisite-internal-sso.zip && lando wp plugin check wp-multisite-internal-sso && rm -f wp-multisite-internal-sso.zip && rm -rf wp-multisite-internal-sso",
+		"wp-repo-screenshots": "npx --no-install cypress run --spec tests/e2e/cypress/e2e/wp-repo-screenshots.cy.js && ./bin/sync-wp-repo-screenshots.sh",
+		"test:unit:php": "./vendor/bin/phpunit",
+		"test:unit:js": "npm test",
+		"test:e2e": "npx cypress run",
+		"check": [
+			"@lint",
+			"@test",
+			"@test:unit:js",
+			"@test:e2e",
+			"@plugin-check"
+		]
+	}
+}

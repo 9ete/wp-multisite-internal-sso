@@ -1,0 +1,66 @@
+# Build / VCS / meta
+.distignore
+.editorconfig
+.gitattributes
+.git
+.git.nosync
+.githooks
+.gitignore
+.github
+
+# Local tooling / IDE
+.vscode
+.idea
+*.swp
+.DS_Store
+
+# AI models and related data files, worktrees
+.claude
+AGENTS.md
+CLAUDE.md
+
+# Dev dependencies
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+composer.json
+composer.lock
+
+# JS tooling config
+package.json
+jest.config.js
+cypress.config.js
+
+# Cypress runtime output (created at plugin root by `cypress run`)
+cypress
+
+# Tests / CI / QA
+bin
+tests
+test
+Testing
+phpunit.xml
+phpunit.xml.dist
+phpcs.xml
+phpcs.xml.dist
+psalm.xml
+psalm.xml.dist
+phpstan.neon
+phpstan.neon.dist
+*.phpt
+.phpunit.result.cache
+*.md
+*.markdown
+
+# Vendor dev-only directories
+vendor
+zips
+*.zip
+
+# WordPress.org listing-only marketing assets
+assets/wporg/
