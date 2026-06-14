@@ -1,0 +1,76 @@
+#!/bin/sh
+
+# ──────────────────────────────────────────────────────────────────────
+# commit-msg hook
+#
+# 1. Validate the commit message against the Conventional Commits spec.
+# 2. Run lint, unit tests, and e2e tests (moved here from pre-commit so
+#    the cheap message check fails fast before expensive test suites).
+# ──────────────────────────────────────────────────────────────────────
+
+commit_msg_file="$1"
+commit_msg=$(cat "$commit_msg_file")
+
+# ── Step 1: Conventional Commits validation ──────────────────────────
+# Skip merge commits and fixup/squash commits.
+if ! echo "$commit_msg" | grep -qE '^(Merge|fixup!|squash!|amend!) '; then
+
+	# Format: [MSSO-NNN: ]<type>[optional scope][!]: <description>
+	# Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+	pattern='^([A-Z]+-[0-9]+: )?(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9 _/.-]+\))?!?: .+'
+
+	if ! echo "$commit_msg" | head -1 | grep -qE "$pattern"; then
+		echo ""
+		echo "ERROR: Commit message does not follow the Conventional Commits specification."
+		echo ""
+		echo "  Expected: [TICKET-NNN: ]<type>[optional scope]: <description>"
+		echo ""
+		echo "  Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+		echo ""
+		echo "  Examples:"
+		echo "    MSSO-9: feat(token): HMAC-SHA256 single-use SSO tokens"
+		echo "    MSSO-4: fix(sso): validate return URL against network site list"
+		echo "    chore: update composer.lock"
+		echo ""
+		echo "  Your message: $(head -1 "$commit_msg_file")"
+		echo ""
+		exit 1
+	fi
+fi
+
+# ── Step 2: Auto-fix formatting then lint ────────────────────────────
+composer lint:fix
+composer lint
+
+# ── Step 3: PHP unit tests ───────────────────────────────────────────
+composer test:unit:php
+
+# ── Step 4: JS unit tests (skip if node_modules not installed) ───────
+if [ -d "node_modules" ]; then
+	npm test -- --passWithNoTests
+fi
+
+# ── Step 5: Cypress e2e tests (skip if unavailable or unreachable) ───
+if [ -d "node_modules/.bin" ] && npx cypress --version >/dev/null 2>&1; then
+	if curl -sSf "${CYPRESS_BASE_URL:-https://wpmssso.lndo.site}" -o /dev/null 2>/dev/null; then
+		# Brief pause so macOS can reclaim resources before the browser starts.
+		_hook_sleep="${CYPRESS_HOOK_SLEEP_SECONDS:-}"
+		if [ -z "$_hook_sleep" ]; then
+			[ "$(uname -s)" = "Darwin" ] && _hook_sleep=5 || _hook_sleep=0
+		fi
+		[ "$_hook_sleep" -gt 0 ] 2>/dev/null && sleep "$_hook_sleep"
+		# Prefer Chrome (more stable than bundled Electron under memory pressure).
+		if [ -z "${CYPRESS_BROWSER:-}" ]; then
+			if [ -f "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ] || \
+			   command -v google-chrome >/dev/null 2>&1 || \
+			   command -v google-chrome-stable >/dev/null 2>&1; then
+				CYPRESS_BROWSER="chrome"
+			else
+				CYPRESS_BROWSER="electron"
+			fi
+		fi
+		npx cypress run --browser "$CYPRESS_BROWSER"
+	else
+		echo "Skipping Cypress e2e tests: base URL not reachable"
+	fi
+fi

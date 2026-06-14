@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# ──────────────────────────────────────────────────────────────────────
+# pre-commit hook
+#
+# Auto-fix formatting issues so staged files are clean before the
+# commit message editor opens. All other checks (lint, tests, e2e)
+# run in the commit-msg hook — after the conventional commit message
+# is validated but before the commit is finalised.
+# ──────────────────────────────────────────────────────────────────────
+
+composer lint:fix

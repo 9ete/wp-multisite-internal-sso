@@ -1,0 +1,17 @@
+{
+	"name": "wp-multisite-internal-sso",
+	"private": true,
+	"description": "Dev tooling (Cypress e2e, Jest) for WP Multisite Internal SSO.",
+	"devDependencies": {
+		"cypress": "^13.17.0",
+		"jest": "^29.7.0",
+		"jest-environment-jsdom": "^29.7.0",
+		"jsdom": "^26.1.0"
+	},
+	"scripts": {
+		"test": "jest --passWithNoTests",
+		"test:e2e": "cypress run",
+		"test:e2e:open": "cypress open",
+		"wp-repo-screenshots": "cypress run --spec tests/e2e/cypress/e2e/wp-repo-screenshots.cy.js && ./bin/sync-wp-repo-screenshots.sh"
+	}
+}
