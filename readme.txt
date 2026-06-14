@@ -4,7 +4,7 @@ Tags: multisite, sso, single sign-on, network, login
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 0.1.13
+Stable tag: 1.0.0
 Network: true
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -63,7 +63,7 @@ Confirm the user account exists on that secondary site, the secondary site is en
 
 == Changelog ==
 
-= 0.1.13 =
+= 1.0.0 =
 * Network-admin settings screen (primary-site picker + per-site secondary toggles) replacing the previous hardcoded site configuration.
 * HMAC-SHA256, single-use, replay-protected tokens with configurable expiry and constant-time verification.
 * Support for any number of secondary sites.
@@ -73,5 +73,5 @@ Confirm the user account exists on that secondary site, the secondary site is en
 
 == Upgrade Notice ==
 
-= 0.1.13 =
+= 1.0.0 =
 Hardened, single-use SSO tokens and a network-admin settings UI replacing hardcoded site configuration.
