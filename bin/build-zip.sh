@@ -40,14 +40,20 @@ if [[ -n "$MAIN_FILE" ]]; then
   [[ "$MAIN_FILE" = /* ]] || MAIN_FILE="${PLUGIN_ROOT}/${MAIN_FILE}"
   [[ -f "$MAIN_FILE" ]] || die "MAIN_FILE not found: $MAIN_FILE"
 else
-  # Try common case: slug.php in plugin root
-  # If not found, scan root for a plugin header.
-  if [[ -f "${PLUGIN_ROOT}/ai-content-by-parallax.php" ]]; then
-    MAIN_FILE="${PLUGIN_ROOT}/ai-content-by-parallax.php"
+  # Try the conventional <slug>.php in the plugin root; otherwise scan the root
+  # for a file carrying the plugin header (glob loop — safe with spaces in path).
+  _slug="$(basename "$PLUGIN_ROOT")"
+  if [[ -f "${PLUGIN_ROOT}/${_slug}.php" ]]; then
+    MAIN_FILE="${PLUGIN_ROOT}/${_slug}.php"
   else
-    MAIN_FILE="$(find "$PLUGIN_ROOT" -maxdepth 1 -type f -name "*.php" -print0 \
-      | xargs -0 -I{} sh -c 'grep -qE "^[[:space:]]*\*[[:space:]]*Plugin Name:" "{}" && grep -qE "^[[:space:]]*\*[[:space:]]*Version:" "{}" && echo "{}"' \
-      | head -n 1)"
+    MAIN_FILE=""
+    for _f in "${PLUGIN_ROOT}"/*.php; do
+      [[ -f "$_f" ]] || continue
+      if grep -qE "^[[:space:]]*\*?[[:space:]]*Plugin Name:" "$_f" && grep -qE "^[[:space:]]*\*?[[:space:]]*Version:" "$_f"; then
+        MAIN_FILE="$_f"
+        break
+      fi
+    done
     [[ -n "$MAIN_FILE" ]] || die "Could not locate a main plugin file in plugin root (looking for Plugin Name + Version headers). Set MAIN_FILE=..."
   fi
 fi
