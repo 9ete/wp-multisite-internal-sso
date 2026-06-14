@@ -49,19 +49,19 @@ class WP_Multisite_Internal_SSO_Admin {
 	}
 
 	/**
-	 * Add admin menu for plugin settings.
+	 * Register the network-admin settings page under the Settings menu.
+	 *
+	 * @return void
 	 */
-	public function add_admin_menu() {
-		if ( is_multisite() && is_super_admin() && $this->settings->get_primary_site_id() === get_current_blog_id() ) {
-			add_submenu_page(
-				'tools.php',
-				__( 'WP Multisite Internal SSO Settings', 'wp-multisite-internal-sso' ),
-				__( 'Multisite SSO', 'wp-multisite-internal-sso' ),
-				'manage_network_options',
-				'wp-multisite-internal-sso',
-				array( $this->settings, 'settings_page' )
-			);
-		}
+	public function add_network_admin_menu() {
+		add_submenu_page(
+			'settings.php',
+			__( 'WP Multisite Internal SSO Settings', 'wp-multisite-internal-sso' ),
+			__( 'Multisite SSO', 'wp-multisite-internal-sso' ),
+			'manage_network_options',
+			WP_Multisite_Internal_SSO_Settings::PAGE_SLUG,
+			array( $this->settings, 'render_settings_page' )
+		);
 	}
 	/**
 	 * Enqueue admin scripts.

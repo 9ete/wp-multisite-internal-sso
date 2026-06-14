@@ -10,7 +10,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Stores and retrieves SSO configuration (primary/secondary sites, token, cookies).
+ * Stores and retrieves SSO configuration as a network option, and renders the
+ * network-admin settings screen (primary-site picker + per-site secondary toggles).
  */
 class WP_Multisite_Internal_SSO_Settings {
 
@@ -22,9 +23,39 @@ class WP_Multisite_Internal_SSO_Settings {
 	private $utils;
 
 	/**
-	 * Option name.
+	 * Network option name.
 	 */
 	const OPTION_NAME = 'wpmis_sso_settings';
+
+	/**
+	 * Nonce action for the settings form.
+	 */
+	const NONCE_ACTION = 'wpmis_sso_settings_save';
+
+	/**
+	 * Slug for the network_admin_edit form handler action.
+	 */
+	const SAVE_ACTION = 'wpmis_sso_save';
+
+	/**
+	 * Settings page slug.
+	 */
+	const PAGE_SLUG = 'wp-multisite-internal-sso';
+
+	/**
+	 * Default token lifetime, in seconds.
+	 */
+	const DEFAULT_TOKEN_EXPIRATION = 300;
+
+	/**
+	 * Minimum allowed token lifetime, in seconds.
+	 */
+	const MIN_TOKEN_EXPIRATION = 60;
+
+	/**
+	 * Default redirect cookie name.
+	 */
+	const DEFAULT_REDIRECT_COOKIE = 'wpmssso_redirect_attempt';
 
 	/**
 	 * Constructor.
@@ -38,293 +69,301 @@ class WP_Multisite_Internal_SSO_Settings {
 
 	/**
 	 * Load plugin textdomain for translations.
+	 *
+	 * @return void
 	 */
 	public function load_textdomain() {
 		load_plugin_textdomain( 'wp-multisite-internal-sso', false, dirname( plugin_basename( __FILE__ ) ) . '/../languages' );
 	}
 
 	/**
-	 * Register plugin settings.
+	 * Default configuration values.
+	 *
+	 * @return array
 	 */
-	public function register_settings() {
-		register_setting( 'wpmis_sso_settings_group', self::OPTION_NAME, array( $this, 'sanitize_settings' ) );
-
-		add_settings_section(
-			'wpmis_sso_main_section',
-			__( 'Main Settings', 'wp-multisite-internal-sso' ),
-			null,
-			'wp-multisite-internal-sso'
-		);
-
-		add_settings_field(
-			'primary_site',
-			__( 'Primary Site URL', 'wp-multisite-internal-sso' ),
-			array( $this, 'primary_site_callback' ),
-			'wp-multisite-internal-sso',
-			'wpmis_sso_main_section'
-		);
-
-		add_settings_field(
-			'secondary_sites',
-			__( 'Secondary Sites URLs', 'wp-multisite-internal-sso' ),
-			array( $this, 'secondary_sites_callback' ),
-			'wp-multisite-internal-sso',
-			'wpmis_sso_main_section'
-		);
-
-		add_settings_field(
-			'token_expiration',
-			__( 'Token Expiration (seconds)', 'wp-multisite-internal-sso' ),
-			array( $this, 'token_expiration_callback' ),
-			'wp-multisite-internal-sso',
-			'wpmis_sso_main_section'
-		);
-
-		add_settings_field(
-			'redirect_cookie_name',
-			__( 'Redirect Cookie Name', 'wp-multisite-internal-sso' ),
-			array( $this, 'redirect_cookie_name_callback' ),
-			'wp-multisite-internal-sso',
-			'wpmis_sso_main_section'
-		);
-
-		add_settings_field(
-			'secure_cookies',
-			__( 'Secure Cookies', 'wp-multisite-internal-sso' ),
-			array( $this, 'secure_cookies_callback' ),
-			'wp-multisite-internal-sso',
-			'wpmis_sso_main_section'
+	private function defaults() {
+		return array(
+			'primary_site_id'      => (int) get_main_site_id(),
+			'secondary_site_ids'   => array(),
+			'token_expiration'     => self::DEFAULT_TOKEN_EXPIRATION,
+			'redirect_cookie_name' => self::DEFAULT_REDIRECT_COOKIE,
+			'secure_cookies'       => is_ssl(),
 		);
 	}
 
 	/**
-	 * Sanitize plugin settings input.
+	 * Retrieve the stored settings merged with defaults.
 	 *
-	 * @param array $input Input settings.
-	 * @return array Sanitized settings.
+	 * @return array
+	 */
+	public function get_settings() {
+		$stored = get_site_option( self::OPTION_NAME, array() );
+		if ( ! is_array( $stored ) ) {
+			$stored = array();
+		}
+		return array_merge( $this->defaults(), $stored );
+	}
+
+	/**
+	 * Sanitize a raw settings payload from the network settings form.
+	 *
+	 * @param array $input Raw form input.
+	 * @return array Sanitized settings safe to persist.
 	 */
 	public function sanitize_settings( $input ) {
-		$sanitized = array();
+		$input     = is_array( $input ) ? $input : array();
+		$valid_ids = $this->get_network_site_ids();
 
-		if ( isset( $input['primary_site'] ) ) {
-			$sanitized['primary_site'] = trailingslashit( esc_url_raw( $input['primary_site'] ) );
+		// Primary site must be an existing site, else fall back to the main site.
+		$primary = isset( $input['primary_site_id'] ) ? absint( $input['primary_site_id'] ) : 0;
+		if ( ! in_array( $primary, $valid_ids, true ) ) {
+			$primary = (int) get_main_site_id();
 		}
 
-		if ( isset( $input['secondary_sites'] ) && is_array( $input['secondary_sites'] ) ) {
-			$sanitized['secondary_sites'] = array_map( 'trailingslashit', array_map( 'esc_url_raw', $input['secondary_sites'] ) );
+		// Secondary sites: existing sites only, never the primary, de-duplicated.
+		$secondary = array();
+		if ( isset( $input['secondary_site_ids'] ) && is_array( $input['secondary_site_ids'] ) ) {
+			foreach ( $input['secondary_site_ids'] as $id ) {
+				$id = absint( $id );
+				if ( $id && $id !== $primary && in_array( $id, $valid_ids, true ) ) {
+					$secondary[ $id ] = $id;
+				}
+			}
 		}
 
-		if ( isset( $input['token_expiration'] ) ) {
-			$sanitized['token_expiration'] = absint( $input['token_expiration'] );
+		$token_expiration = isset( $input['token_expiration'] ) ? absint( $input['token_expiration'] ) : self::DEFAULT_TOKEN_EXPIRATION;
+		if ( $token_expiration < self::MIN_TOKEN_EXPIRATION ) {
+			$token_expiration = self::MIN_TOKEN_EXPIRATION;
 		}
 
-		if ( isset( $input['redirect_cookie_name'] ) ) {
-			$sanitized['redirect_cookie_name'] = sanitize_text_field( $input['redirect_cookie_name'] );
+		$cookie_name = isset( $input['redirect_cookie_name'] ) ? sanitize_key( $input['redirect_cookie_name'] ) : '';
+		if ( '' === $cookie_name ) {
+			$cookie_name = self::DEFAULT_REDIRECT_COOKIE;
 		}
 
-		if ( isset( $input['secure_cookies'] ) ) {
-			$sanitized['secure_cookies'] = boolval( $input['secure_cookies'] );
-		}
-
-		return $sanitized;
+		return array(
+			'primary_site_id'      => $primary,
+			'secondary_site_ids'   => array_values( $secondary ),
+			'token_expiration'     => $token_expiration,
+			'redirect_cookie_name' => $cookie_name,
+			'secure_cookies'       => ! empty( $input['secure_cookies'] ),
+		);
 	}
 
 	/**
-	 * Callback for primary site URL field.
-	 */
-	public function primary_site_callback() {
-		$settings = get_option( self::OPTION_NAME, array() );
-		?>
-		<input type="url" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[primary_site]" value="<?php echo isset( $settings['primary_site'] ) ? esc_attr( $settings['primary_site'] ) : esc_url( get_site_url( get_main_site_id() ) ); ?>" size="50" required />
-		<p class="description"><?php esc_html_e( 'Enter the URL of the primary site where users will authenticate.', 'wp-multisite-internal-sso' ); ?></p>
-		<?php
-	}
-
-	/**
-	 * Callback for secondary sites URLs field.
-	 */
-	public function secondary_sites_callback() {
-		$settings        = get_option( self::OPTION_NAME, array() );
-		$secondary_sites = isset( $settings['secondary_sites'] ) ? $settings['secondary_sites'] : array( get_site_url( 2 ) );
-		?>
-		<div id="secondary-sites-wrapper">
-			<?php foreach ( $secondary_sites as $index => $site_url ) : ?>
-				<div class="secondary-site-field">
-					<input type="url" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[secondary_sites][]" value="<?php echo esc_attr( $site_url ); ?>" size="50" required />
-					<?php if ( $index > 0 ) : ?>
-						<button type="button" class="button remove-secondary-site"><?php esc_html_e( 'Remove', 'wp-multisite-internal-sso' ); ?></button>
-					<?php endif; ?>
-				</div>
-			<?php endforeach; ?>
-		</div>
-		<button type="button" class="button" id="add-secondary-site"><?php esc_html_e( 'Add Secondary Site', 'wp-multisite-internal-sso' ); ?></button>
-		<p class="description"><?php esc_html_e( 'Enter the URLs of the secondary sites that should accept SSO from the primary site.', 'wp-multisite-internal-sso' ); ?></p>
-		<script>
-			document.addEventListener('DOMContentLoaded', function() {
-				document.getElementById('add-secondary-site').addEventListener('click', function(e) {
-					e.preventDefault();
-					var wrapper = document.getElementById('secondary-sites-wrapper');
-					var field = document.createElement('div');
-					field.className = 'secondary-site-field';
-					field.innerHTML = '<input type="url" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[secondary_sites][]" value="" size="50" required /> <button type="button" class="button remove-secondary-site"><?php esc_html_e( 'Remove', 'wp-multisite-internal-sso' ); ?></button>';
-					wrapper.appendChild(field);
-				});
-
-				document.getElementById('secondary-sites-wrapper').addEventListener('click', function(e) {
-					if ( e.target && e.target.classList.contains('remove-secondary-site') ) {
-						e.target.parentElement.remove();
-					}
-				});
-			});
-		</script>
-		<?php
-	}
-
-	/**
-	 * Callback for token expiration field.
-	 */
-	public function token_expiration_callback() {
-		$settings   = get_option( self::OPTION_NAME, array() );
-		$expiration = isset( $settings['token_expiration'] ) ? absint( $settings['token_expiration'] ) : 300;
-		?>
-		<input type="number" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[token_expiration]" value="<?php echo esc_attr( $expiration ); ?>" min="60" step="60" />
-		<p class="description"><?php esc_html_e( 'Define how long SSO tokens remain valid (in seconds). Default is 300 seconds (5 minutes).', 'wp-multisite-internal-sso' ); ?></p>
-		<?php
-	}
-
-	/**
-	 * Callback for redirect cookie name field.
-	 */
-	public function redirect_cookie_name_callback() {
-		$settings    = get_option( self::OPTION_NAME, array() );
-		$cookie_name = isset( $settings['redirect_cookie_name'] ) ? sanitize_text_field( $settings['redirect_cookie_name'] ) : 'wpmssso_redirect_attempt';
-		?>
-		<input type="text" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[redirect_cookie_name]" value="<?php echo esc_attr( $cookie_name ); ?>" size="30" />
-		<p class="description"><?php esc_html_e( 'Specify a custom name for the redirect cookie used during the SSO process.', 'wp-multisite-internal-sso' ); ?></p>
-		<?php
-	}
-
-	/**
-	 * Callback for secure cookies field.
-	 */
-	public function secure_cookies_callback() {
-		$settings = get_option( self::OPTION_NAME, array() );
-		$secure   = isset( $settings['secure_cookies'] ) ? boolval( $settings['secure_cookies'] ) : is_ssl();
-		?>
-		<input type="checkbox" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[secure_cookies]" value="1" <?php checked( $secure, true ); ?> />
-		<p class="description"><?php esc_html_e( 'Enable secure cookies to ensure cookies are transmitted only over HTTPS.', 'wp-multisite-internal-sso' ); ?></p>
-		<?php
-	}
-
-	/**
-	 * Get primary site URL.
+	 * IDs of every site in the network.
 	 *
-	 * @return string
+	 * @return int[]
 	 */
-	public function get_primary_site() {
-		$settings = get_option( self::OPTION_NAME, array() );
-		return isset( $settings['primary_site'] ) ? trailingslashit( esc_url_raw( $settings['primary_site'] ) ) : trailingslashit( get_site_url( get_main_site_id() ) );
+	private function get_network_site_ids() {
+		$ids = array();
+		foreach ( get_sites( array( 'number' => 0 ) ) as $site ) {
+			$ids[] = (int) ( is_object( $site ) ? $site->blog_id : $site );
+		}
+		return $ids;
 	}
 
 	/**
-	 * Get primary site ID.
+	 * Get the primary site ID.
 	 *
 	 * @return int
 	 */
 	public function get_primary_site_id() {
-		$settings = get_option( self::OPTION_NAME, array() );
-		return isset( $settings['primary_site_id'] ) ? absint( $settings['primary_site_id'] ) : get_main_site_id();
+		$settings = $this->get_settings();
+		$id       = absint( $settings['primary_site_id'] );
+		return $id ? $id : (int) get_main_site_id();
 	}
 
 	/**
-	 * Get secondary sites URLs.
+	 * Get the primary site URL (trailing-slashed).
 	 *
-	 * @return array
-	 * @throws Exception When no secondary sites are configured or discoverable.
+	 * @return string
+	 */
+	public function get_primary_site() {
+		return trailingslashit( get_site_url( $this->get_primary_site_id() ) );
+	}
+
+	/**
+	 * Get the enabled secondary site IDs.
+	 *
+	 * @return int[]
+	 */
+	public function get_secondary_site_ids() {
+		$settings = $this->get_settings();
+		$ids      = isset( $settings['secondary_site_ids'] ) ? (array) $settings['secondary_site_ids'] : array();
+		return array_values( array_filter( array_map( 'absint', $ids ) ) );
+	}
+
+	/**
+	 * Get the enabled secondary site URLs (trailing-slashed).
+	 *
+	 * Returns an empty array when none are configured (never throws), so the SSO
+	 * flow degrades gracefully on a freshly-activated network.
+	 *
+	 * @return string[]
 	 */
 	public function get_secondary_sites() {
-		$settings        = get_option( self::OPTION_NAME, array() );
-		$secondary_sites = isset( $settings['secondary_sites'] ) ? $settings['secondary_sites'] : array();
-
-		if ( empty( $secondary_sites ) ) {
-			$site_urls = array();
-			for ( $i = 2; $i <= 4; $i++ ) {
-				$site_url = get_site_url( $i );
-				if ( $site_url ) {
-					$site_urls[] = trailingslashit( $site_url );
-				}
+		$urls = array();
+		foreach ( $this->get_secondary_site_ids() as $id ) {
+			$url = get_site_url( $id );
+			if ( $url ) {
+				$urls[] = trailingslashit( $url );
 			}
-
-			if ( empty( $site_urls ) ) {
-				throw new Exception( __( 'No secondary sites found. Please configure secondary sites.', 'wp-multisite-internal-sso' ) );
-			}
-
-			$secondary_sites = $site_urls;
 		}
-
-		return array_map( 'trailingslashit', array_map( 'esc_url_raw', (array) $secondary_sites ) );
+		return $urls;
 	}
 
 	/**
-	 * Get secondary site IDs.
-	 *
-	 * @return array
-	 */
-	public function get_secondary_sites_ids() {
-		$sites              = get_sites();
-		$secondary_sites    = $this->get_secondary_sites();
-		$secondary_site_ids = array();
-		foreach ( $sites as $site ) {
-			if ( in_array( trailingslashit( $site->siteurl ), $secondary_sites, true ) ) {
-				$secondary_site_ids[] = $site->blog_id;
-			}
-		}
-		return $secondary_site_ids;
-	}
-
-	/**
-	 * Get redirect cookie name.
+	 * Get the redirect cookie name.
 	 *
 	 * @return string
 	 */
 	public function get_redirect_cookie_name() {
-		$settings = get_option( self::OPTION_NAME, array() );
-		return isset( $settings['redirect_cookie_name'] ) ? sanitize_text_field( $settings['redirect_cookie_name'] ) : 'wpmssso_redirect_attempt';
+		$settings = $this->get_settings();
+		$name     = sanitize_key( (string) $settings['redirect_cookie_name'] );
+		return $name ? $name : self::DEFAULT_REDIRECT_COOKIE;
 	}
 
 	/**
-	 * Get token expiration time.
+	 * Get the token expiration time, in seconds.
 	 *
 	 * @return int
 	 */
 	public function get_token_expiration() {
-		$settings = get_option( self::OPTION_NAME, array() );
-		return isset( $settings['token_expiration'] ) ? absint( $settings['token_expiration'] ) : 300;
+		$settings = $this->get_settings();
+		return max( self::MIN_TOKEN_EXPIRATION, absint( $settings['token_expiration'] ) );
 	}
 
 	/**
-	 * Determine if secure cookies are enabled.
+	 * Determine whether secure cookies are enabled.
 	 *
 	 * @return bool
 	 */
 	public function are_secure_cookies_enabled() {
-		$settings = get_option( self::OPTION_NAME, array() );
-		return isset( $settings['secure_cookies'] ) ? boolval( $settings['secure_cookies'] ) : is_ssl();
+		$settings = $this->get_settings();
+		return ! empty( $settings['secure_cookies'] );
 	}
 
 	/**
-	 * Render the settings page.
+	 * Handle the network settings form submission.
+	 *
+	 * Hooked to network_admin_edit_{SAVE_ACTION}; validates the nonce and the
+	 * manage_network_options capability, persists the sanitized payload as a
+	 * network option, then redirects back to the settings screen.
+	 *
+	 * @return void
 	 */
-	public function settings_page() {
+	public function handle_network_save() {
+		if ( ! current_user_can( 'manage_network_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to manage these settings.', 'wp-multisite-internal-sso' ) );
+		}
+
+		check_admin_referer( self::NONCE_ACTION );
+
+		// Sanitized field-by-field in sanitize_settings().
+		$raw = isset( $_POST[ self::OPTION_NAME ] ) ? wp_unslash( $_POST[ self::OPTION_NAME ] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		update_site_option( self::OPTION_NAME, $this->sanitize_settings( $raw ) );
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'    => self::PAGE_SLUG,
+					'updated' => 'true',
+				),
+				network_admin_url( 'settings.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Render the network settings page.
+	 *
+	 * @return void
+	 */
+	public function render_settings_page() {
+		if ( ! current_user_can( 'manage_network_options' ) ) {
+			return;
+		}
+
+		$settings   = $this->get_settings();
+		$sites      = get_sites( array( 'number' => 0 ) );
+		$primary_id = (int) $settings['primary_site_id'];
+		$secondary  = array_map( 'absint', (array) $settings['secondary_site_ids'] );
+		$form_url   = network_admin_url( 'edit.php?action=' . self::SAVE_ACTION );
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'WP Multisite Internal SSO Settings', 'wp-multisite-internal-sso' ); ?></h1>
-			<form method="post" action="options.php">
-				<?php
-				settings_fields( 'wpmis_sso_settings_group' );
-				do_settings_sections( 'wp-multisite-internal-sso' );
-				submit_button();
-				?>
+
+			<?php if ( isset( $_GET['updated'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+				<div id="message" class="updated notice is-dismissible">
+					<p><?php esc_html_e( 'Settings saved.', 'wp-multisite-internal-sso' ); ?></p>
+				</div>
+			<?php endif; ?>
+
+			<form method="post" action="<?php echo esc_url( $form_url ); ?>">
+				<?php wp_nonce_field( self::NONCE_ACTION ); ?>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><label for="wpmis_sso_primary_site"><?php esc_html_e( 'Primary Site', 'wp-multisite-internal-sso' ); ?></label></th>
+						<td>
+							<select name="<?php echo esc_attr( self::OPTION_NAME ); ?>[primary_site_id]" id="wpmis_sso_primary_site">
+								<?php foreach ( $sites as $site ) : ?>
+									<?php $sid = (int) $site->blog_id; ?>
+									<option value="<?php echo esc_attr( $sid ); ?>" <?php selected( $sid, $primary_id ); ?>>
+										<?php echo esc_html( get_site_url( $sid ) ); ?>
+									</option>
+								<?php endforeach; ?>
+							</select>
+							<p class="description"><?php esc_html_e( 'The site that holds the canonical login. Users authenticate here.', 'wp-multisite-internal-sso' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Secondary Sites', 'wp-multisite-internal-sso' ); ?></th>
+						<td>
+							<fieldset>
+								<legend class="screen-reader-text"><?php esc_html_e( 'Secondary sites', 'wp-multisite-internal-sso' ); ?></legend>
+								<?php foreach ( $sites as $site ) : ?>
+									<?php
+									$sid = (int) $site->blog_id;
+									if ( $sid === $primary_id ) {
+										continue;
+									}
+									?>
+									<label style="display:block;margin-bottom:4px;">
+										<input type="checkbox" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[secondary_site_ids][]" value="<?php echo esc_attr( $sid ); ?>" <?php checked( in_array( $sid, $secondary, true ) ); ?> />
+										<?php echo esc_html( get_site_url( $sid ) ); ?>
+									</label>
+								<?php endforeach; ?>
+							</fieldset>
+							<p class="description"><?php esc_html_e( 'Sites where users are auto-logged-in after authenticating on the primary site.', 'wp-multisite-internal-sso' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="wpmis_sso_token_expiration"><?php esc_html_e( 'Token Expiration (seconds)', 'wp-multisite-internal-sso' ); ?></label></th>
+						<td>
+							<input type="number" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[token_expiration]" id="wpmis_sso_token_expiration" value="<?php echo esc_attr( $settings['token_expiration'] ); ?>" min="<?php echo esc_attr( self::MIN_TOKEN_EXPIRATION ); ?>" step="30" />
+							<p class="description"><?php esc_html_e( 'How long an SSO token stays valid. Default 300 seconds (5 minutes).', 'wp-multisite-internal-sso' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="wpmis_sso_cookie_name"><?php esc_html_e( 'Redirect Cookie Name', 'wp-multisite-internal-sso' ); ?></label></th>
+						<td>
+							<input type="text" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[redirect_cookie_name]" id="wpmis_sso_cookie_name" value="<?php echo esc_attr( $settings['redirect_cookie_name'] ); ?>" class="regular-text" />
+							<p class="description"><?php esc_html_e( 'Name of the short-lived cookie used to prevent redirect loops.', 'wp-multisite-internal-sso' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Secure Cookies', 'wp-multisite-internal-sso' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[secure_cookies]" value="1" <?php checked( ! empty( $settings['secure_cookies'] ) ); ?> />
+								<?php esc_html_e( 'Only transmit SSO cookies over HTTPS.', 'wp-multisite-internal-sso' ); ?>
+							</label>
+						</td>
+					</tr>
+				</table>
+				<?php submit_button(); ?>
 			</form>
 		</div>
 		<?php

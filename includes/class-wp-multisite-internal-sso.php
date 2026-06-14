@@ -93,8 +93,8 @@ class WP_Multisite_Internal_SSO {
 	 */
 	private function init_hooks() {
 		add_action( 'template_redirect', array( $this->sso, 'check_sso' ) );
-		add_action( 'admin_menu', array( $this->admin, 'add_admin_menu' ) );
-		add_action( 'admin_init', array( $this->settings, 'register_settings' ) );
+		add_action( 'network_admin_menu', array( $this->admin, 'add_network_admin_menu' ) );
+		add_action( 'network_admin_edit_' . WP_Multisite_Internal_SSO_Settings::SAVE_ACTION, array( $this->settings, 'handle_network_save' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_styles' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
 		add_filter( 'login_redirect', array( $this->sso, 'wpmis_sso_login_redirect' ), 10, 3 );
