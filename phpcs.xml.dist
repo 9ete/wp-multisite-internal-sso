@@ -27,21 +27,10 @@
   </rule>
 
   <!--
-    Staged enforcement (inherited v0.1.13 codebase).
-    These sniffs are temporarily silenced so `composer lint` stays green per
-    commit while the remediation lands in its dedicated ticket. Each ticket
-    below REMOVES its block and drives the findings to zero before merge:
-      - WordPress.Security.*  -> MSSO-4 (security audit: sanitize/escape/nonce/caps)
-      - WordPress.WP.I18n     -> MSSO-5 (i18n audit + .pot)
-    New code written between now and those tickets still follows the practice;
-    MSSO-4/MSSO-5 re-enable the automated gate to verify the whole tree.
+    Staged enforcement (inherited v0.1.13 codebase): the i18n sniff stays
+    silenced until MSSO-5 lands the .pot + translator-comment fixes and removes
+    this block. Security sniffs were re-enabled in MSSO-4.
   -->
-  <rule ref="WordPress.Security.ValidatedSanitizedInput">
-    <severity>0</severity>
-  </rule>
-  <rule ref="WordPress.Security.EscapeOutput">
-    <severity>0</severity>
-  </rule>
   <rule ref="WordPress.WP.I18n">
     <severity>0</severity>
   </rule>

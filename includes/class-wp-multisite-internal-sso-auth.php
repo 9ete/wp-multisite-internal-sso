@@ -43,21 +43,23 @@ class WP_Multisite_Internal_SSO_Auth {
 	 * Handle nonce verification and actions.
 	 */
 	public function handle_actions() {
-		if ( isset( $_GET['_wpnonce'] ) ) {
+		$nonce = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '';
+
+		if ( '' !== $nonce ) {
 			if ( isset( $_GET['forcelogout'] ) && 'true' === $_GET['forcelogout'] ) {
-				if ( ! wp_verify_nonce( $_GET['_wpnonce'], 'wpmis_sso_logout' ) ) {
-					wp_die( __( 'Nonce verification failed.', 'wp-multisite-internal-sso' ) );
+				if ( ! wp_verify_nonce( $nonce, 'wpmis_sso_logout' ) ) {
+					wp_die( esc_html__( 'Nonce verification failed.', 'wp-multisite-internal-sso' ) );
 				}
 				$this->logout_user();
 			}
 
 			if ( isset( $_GET['clear_cookies'] ) && 'true' === $_GET['clear_cookies'] ) {
-				if ( ! wp_verify_nonce( $_GET['_wpnonce'], 'wpmis_sso_clear_cookies' ) ) {
-					wp_die( __( 'Nonce verification failed.', 'wp-multisite-internal-sso' ) );
+				if ( ! wp_verify_nonce( $nonce, 'wpmis_sso_clear_cookies' ) ) {
+					wp_die( esc_html__( 'Nonce verification failed.', 'wp-multisite-internal-sso' ) );
 				}
 				$this->clear_auth_cookies();
 			}
-		} elseif ( isset( $_GET['forcelogout'] ) ) {
+		} elseif ( isset( $_GET['forcelogout'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			$this->utils->wpmis_wp_redirect(
 				add_query_arg(
 					array(
@@ -90,7 +92,8 @@ class WP_Multisite_Internal_SSO_Auth {
 		if ( $user ) {
 			wp_set_current_user( $user->ID );
 			wp_set_auth_cookie( $user->ID );
-			do_action( 'wp_login', $user->user_login, $user );
+			// Intentionally fire WordPress core's wp_login action on programmatic SSO login.
+			do_action( 'wp_login', $user->user_login, $user ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
 			$this->utils->debug_message( 'User ID ' . $user->ID . ' (' . $user->user_login . ') logged in successfully.' );
 		} else {
 			$this->utils->debug_message( 'User not found for ID: ' . $user_id );
@@ -104,18 +107,17 @@ class WP_Multisite_Internal_SSO_Auth {
 		$this->utils->debug_message( __( 'Logging out user from all sites.', 'wp-multisite-internal-sso' ) );
 
 		if ( is_user_logged_in() ) {
-			global $wpdb;
+			$blog_ids = get_sites(
+				array(
+					'fields' => 'ids',
+					'number' => 0,
+				)
+			);
 
-			$user_id = get_current_user_id();
-
-			$blogs = $wpdb->get_col( "SELECT blog_id FROM {$wpdb->blogs}" );
-
-			if ( $blogs ) {
-				foreach ( $blogs as $blog_id ) {
-					switch_to_blog( $blog_id );
-					$this->clear_auth_cookies();
-					restore_current_blog();
-				}
+			foreach ( $blog_ids as $blog_id ) {
+				switch_to_blog( (int) $blog_id );
+				$this->clear_auth_cookies();
+				restore_current_blog();
 			}
 
 			wp_logout();
@@ -155,10 +157,13 @@ class WP_Multisite_Internal_SSO_Auth {
 			$this->utils->debug_message( __( 'Deleting user meta for user.', 'wp-multisite-internal-sso' ) . ' ' . $user_id );
 			delete_user_meta( $user_id, 'session_tokens' );
 		}
-		// If coming from the Debugging Clear Cookies button, we have the source URL in $_GET['source'].
-		if ( isset( $_GET['source'] ) && $this->utils->is_valid_site_url( $_GET['source'], $this->settings->get_secondary_sites() ) ) {
-			$this->utils->debug_message( __( 'Redirecting to source site.', 'wp-multisite-internal-sso' ) . ' ' . esc_url_raw( $_GET['source'] ) );
-			$this->utils->wpmis_wp_redirect( esc_url_raw( $_GET['source'] ) );
+		// If coming from the Clear Cookies action, a source URL may be present; only
+		// honour it when it is a configured secondary site (prevents open redirects).
+		// Nonce is verified upstream in handle_actions() before this method runs.
+		$source = isset( $_GET['source'] ) ? esc_url_raw( wp_unslash( $_GET['source'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( '' !== $source && $this->utils->is_valid_site_url( $source, $this->settings->get_secondary_sites() ) ) {
+			$this->utils->debug_message( 'Redirecting to source site.' );
+			$this->utils->wpmis_wp_redirect( $source );
 			exit;
 		}
 		// If not coming from the Debug button, the redirect is handled in the logout_user() method.

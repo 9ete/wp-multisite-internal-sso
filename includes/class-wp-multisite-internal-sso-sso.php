@@ -47,6 +47,12 @@ class WP_Multisite_Internal_SSO_SSO {
 		$this->token    = new WP_Multisite_Internal_SSO_Token( $settings );
 	}
 
+	// The SSO request handlers below authenticate via the signed, single-use token
+	// (verified in WP_Multisite_Internal_SSO_Token), not a form nonce — a per-session
+	// WP nonce cannot travel across sites, so nonce-verification warnings are
+	// intentionally suppressed for these public read-only handlers.
+	// phpcs:disable WordPress.Security.NonceVerification.Recommended
+
 	/**
 	 * Handle login redirection based on user roles.
 	 *
@@ -152,9 +158,15 @@ class WP_Multisite_Internal_SSO_SSO {
 				exit;
 			}
 
-			$auto_login_return = isset( $_GET['wpmssso_return'] ) ? $_GET['wpmssso_return'] : false;
+			$auto_login_return = isset( $_GET['wpmssso_return'] ) ? esc_url_raw( wp_unslash( $_GET['wpmssso_return'] ) ) : false;
 			$this->utils->debug_message( __( 'Received SSO token on primary site.', 'wp-multisite-internal-sso' ) );
-			$this->auto_login_user( $_GET['wpmssso_user'], $_GET['wpmssso_token'], $_GET['wpmssso_time'], $_GET['wpmssso_nonce'], $auto_login_return );
+			$this->auto_login_user(
+				absint( $_GET['wpmssso_user'] ),
+				sanitize_text_field( wp_unslash( $_GET['wpmssso_token'] ) ),
+				absint( $_GET['wpmssso_time'] ),
+				sanitize_text_field( wp_unslash( $_GET['wpmssso_nonce'] ) ),
+				$auto_login_return
+			);
 		}
 	}
 
@@ -221,7 +233,12 @@ class WP_Multisite_Internal_SSO_SSO {
 		}
 
 		if ( isset( $_GET['wpmssso_user'], $_GET['wpmssso_token'], $_GET['wpmssso_time'], $_GET['wpmssso_nonce'] ) ) {
-			$this->auto_login_user( $_GET['wpmssso_user'], $_GET['wpmssso_token'], $_GET['wpmssso_time'], $_GET['wpmssso_nonce'] );
+			$this->auto_login_user(
+				absint( $_GET['wpmssso_user'] ),
+				sanitize_text_field( wp_unslash( $_GET['wpmssso_token'] ) ),
+				absint( $_GET['wpmssso_time'] ),
+				sanitize_text_field( wp_unslash( $_GET['wpmssso_nonce'] ) )
+			);
 		} elseif ( isset( $_COOKIE[ $this->settings->get_redirect_cookie_name() ] ) ) {
 				$this->utils->debug_message( __( 'Redirect already attempted on ' . get_site_url() . ' No further action.', 'wp-multisite-internal-sso' ) );
 		} else {
@@ -237,7 +254,7 @@ class WP_Multisite_Internal_SSO_SSO {
 		$this->utils->debug_message( __( 'Redirecting to primary site for SSO.', 'wp-multisite-internal-sso' ) );
 		$redirect_args = array(
 			'wpmssso_redirect' => '1',
-			'wpmssso_return'   => urlencode( $this->get_current_site_url() ),
+			'wpmssso_return'   => $this->get_current_site_url(),
 		);
 		$this->utils->wpmis_wp_redirect( $this->settings->get_primary_site(), $redirect_args );
 		exit;
@@ -307,4 +324,6 @@ class WP_Multisite_Internal_SSO_SSO {
 	private function get_current_site_url() {
 		return trailingslashit( home_url() );
 	}
+
+	// phpcs:enable WordPress.Security.NonceVerification.Recommended
 }

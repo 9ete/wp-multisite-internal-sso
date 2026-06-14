@@ -21,17 +21,11 @@ class WP_Multisite_Internal_SSO_Utils {
 	 * @param bool   $space_above Whether to prepend blank lines before the entry.
 	 */
 	public function debug_message( $message, $space_above = false ) {
-		if ( WP_DEBUG && WP_DEBUG_LOG ) {
-			$log_file = WP_CONTENT_DIR . '/sso-debug.log';
-			if ( is_writable( $log_file ) ) {
-				if ( $space_above ) {
-					error_log( "\n\n", 3, $log_file );
-				}
-				error_log( 'WPMIS SSO: ' . $message . "\n", 3, $log_file );
-			} else {
-				error_log( 'WPMIS SSO: Log file is not writable.' );
-			}
+		if ( ! ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) ) {
+			return;
 		}
+		// Debug-only diagnostics routed to the standard WP debug log.
+		error_log( ( $space_above ? "\n\n" : '' ) . 'WPMIS SSO: ' . $message ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 	}
 
 	/**
@@ -61,7 +55,7 @@ class WP_Multisite_Internal_SSO_Utils {
 
 		$redirect_url = add_query_arg( $params, $redirect_to );
 		$this->debug_message( 'Redirecting to ' . $redirect_url );
-		wp_redirect( $redirect_url );
+		wp_safe_redirect( $redirect_url );
 		exit;
 	}
 }
