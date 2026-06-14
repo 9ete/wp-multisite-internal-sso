@@ -74,9 +74,10 @@ class WP_Multisite_Internal_SSO_SSO {
 				if ( ! is_user_member_of_blog( $user->ID, $this->settings->get_primary_site_id() ) ) {
 					$this->utils->debug_message( 'User not a member of primary site.' );
 				} else {
-					// Redirect to primary site with auto-login payload.
+					// Redirect to the primary with an auto-login payload, returning to the
+					// secondary the user just logged in on (works for any number of secondaries).
 					$this->clear_redirect_cookie();
-					$this->redirect_user_with_auto_login_payload( $user->ID, $this->settings->get_primary_site(), $this->settings->get_secondary_sites()[0] );
+					$this->redirect_user_with_auto_login_payload( $user->ID, $this->settings->get_primary_site(), $this->get_current_site_url() );
 				}
 			} else {
 				$this->utils->debug_message( 'Primary site login successful, redirecting to home page.' );
@@ -122,12 +123,23 @@ class WP_Multisite_Internal_SSO_SSO {
 	private function handle_primary_site_logic() {
 		$this->utils->debug_message( __( 'Running handle_primary_site_logic', 'wp-multisite-internal-sso' ) );
 		if ( isset( $_GET['wpmssso_redirect'] ) && '1' === $_GET['wpmssso_redirect'] ) {
+			$return = isset( $_GET['wpmssso_return'] ) ? esc_url_raw( wp_unslash( $_GET['wpmssso_return'] ) ) : '';
+
 			if ( is_user_logged_in() ) {
-				$this->utils->debug_message( __( 'User logged in on primary site.', 'wp-multisite-internal-sso' ) );
-				$this->redirect_user_with_auto_login_payload( wp_get_current_user()->ID, $_GET['wpmssso_return'] );
+				// Only mint and forward a token to a configured secondary site — never to
+				// an arbitrary return URL — so a crafted wpmssso_return cannot capture a token.
+				if ( $this->settings->is_secondary_site( $return ) ) {
+					$this->utils->debug_message( __( 'User logged in on primary site.', 'wp-multisite-internal-sso' ) );
+					$this->redirect_user_with_auto_login_payload( wp_get_current_user()->ID, $return );
+				} else {
+					$this->utils->debug_message( __( 'Ignoring SSO redirect: return URL is not a configured secondary site.', 'wp-multisite-internal-sso' ) );
+				}
 			} else {
-				$this->utils->debug_message( __( 'User not logged in on primary site. Redirecting to secondary site.', 'wp-multisite-internal-sso' ) );
-				$this->utils->wpmis_wp_redirect( $this->settings->get_secondary_sites()[0] );
+				// Neither primary nor the originating secondary has a session: bounce back
+				// to the originating secondary when valid, otherwise to the home page.
+				$this->utils->debug_message( __( 'User not logged in on primary site.', 'wp-multisite-internal-sso' ) );
+				$destination = $this->settings->is_secondary_site( $return ) ? $return : home_url();
+				$this->utils->wpmis_wp_redirect( $destination );
 				exit;
 			}
 		}

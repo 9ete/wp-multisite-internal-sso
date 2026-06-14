@@ -214,6 +214,17 @@ class WP_Multisite_Internal_SSO_Settings {
 	}
 
 	/**
+	 * Whether a URL matches one of the enabled secondary sites.
+	 *
+	 * @param string $url Candidate URL.
+	 * @return bool
+	 */
+	public function is_secondary_site( $url ) {
+		$url = trailingslashit( esc_url_raw( (string) $url ) );
+		return in_array( $url, $this->get_secondary_sites(), true );
+	}
+
+	/**
 	 * Get the redirect cookie name.
 	 *
 	 * @return string
